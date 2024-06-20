@@ -1,43 +1,36 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.15...3.29)
 
-project(SeismicMesh)
+project(SeismicMesh LANGUAGES C CXX)
 
 ##############################################################################
 
-# Add custom CMake modules
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
-
-# Some screen output
-message(STATUS "OS detected: ${CMAKE_SYSTEM_NAME}")
-message(STATUS "CXX Compiler detected: ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "CMake additional search path for libraries: ${CMAKE_LIBRARY_PATH}")
-
 # CGAL and its components
-find_package(CGAL)
+find_package(CGAL REQUIRED)
 message(STATUS "CGAL version: ${CGAL_VERSION}")
 
-if( CGAL_VERSION  VERSION_LESS 5.0)
-    message(FATAL_ERROR "This project requires at least CGAL 5.0 library and will not be compiled.")
-endif()
+set(MIGRATION_SRCE "SeismicMesh/migration/cpp")
+set(GENERATION_SRCE "SeismicMesh/generation/cpp")
+set(SIZING_SRCE "SeismicMesh/sizing/cpp")
+set(GEOMETRY_SRCE "SeismicMesh/geometry/cpp")
 
+add_library(Common INTERFACE)
+target_include_directories(Common INTERFACE ${MIGRATION_SRCE} ${GENERATION_SRCE} ${SIZING_SRC} ${GEOMETRY_SRCE})
 
-# include helper file
-include( ${CGAL_USE_FILE})
-
-set (MIGRATION_SRCE "SeismicMesh/migration/cpp")
-set (GENERATION_SRCE "SeismicMesh/generation/cpp")
-set (SIZING_SRCE "SeismicMesh/sizing/cpp")
-set (GEOMETRY_SRCE "SeismicMesh/geometry/cpp")
-
-include_directories (${MIGRATION_SRCE} ${GENERATION_SRCE} ${SIZING_SRC} ${GEOMETRY_SRCE})
-
-find_package(pybind11)
+set(PYBIND11_FINDPYTHON ON)
+find_package(pybind11 CONFIG REQUIRED)
 message(STATUS "Found pybind11 v${pybind11_VERSION}: ${pybind11_INCLUDE_DIRS}")
 
-#add_subdirectory(pybind11)
-pybind11_add_module(cpputils ${SOURCES}  "${MIGRATION_SRCE}/cpputils.cpp")
-pybind11_add_module(FastHJ ${SOURCES} "${SIZING_SRCE}/FastHJ.cpp")
-pybind11_add_module(delaunay ${SOURCES} "${GENERATION_SRCE}/delaunay.cpp")
-pybind11_add_module(delaunay_class ${SOURCES} "${GENERATION_SRCE}/delaunay_class.cpp")
-pybind11_add_module(delaunay_class3 ${SOURCES} "${GENERATION_SRCE}/delaunay_class3.cpp")
-pybind11_add_module(fast_geometry ${SOURCES} "${GEOMETRY_SRCE}/fast_geometry.cpp")
+pybind11_add_module(cpputils "${MIGRATION_SRCE}/cpputils.cpp")
+target_link_libraries(cpputils PRIVATE Common CGAL::CGAL)
+pybind11_add_module(FastHJ "${SIZING_SRCE}/FastHJ.cpp")
+target_link_libraries(FastHJ PRIVATE Common CGAL::CGAL)
+pybind11_add_module(delaunay "${GENERATION_SRCE}/delaunay.cpp")
+target_link_libraries(delaunay PRIVATE Common CGAL::CGAL)
+pybind11_add_module(delaunay_class "${GENERATION_SRCE}/delaunay_class.cpp")
+target_link_libraries(delaunay_class PRIVATE Common CGAL::CGAL)
+pybind11_add_module(delaunay_class3 "${GENERATION_SRCE}/delaunay_class3.cpp")
+target_link_libraries(delaunay_class3 PRIVATE Common CGAL::CGAL)
+pybind11_add_module(fast_geometry "${GEOMETRY_SRCE}/fast_geometry.cpp")
+target_link_libraries(fast_geometry PRIVATE Common CGAL::CGAL)
+
+install(TARGETS cpputils FastHJ delaunay delaunay_class delaunay_class3 fast_geometry LIBRARY DESTINATION SeismicMesh)
